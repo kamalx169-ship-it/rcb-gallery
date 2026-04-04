@@ -1,122 +1,67 @@
-import React, { useState, useMemo } from "react";
-import ImageCard from "./ImageCard";
-import images from "../data/images";
+// gallery.js
+// Handles filter buttons and drawing the grid of cards
 
-const CATEGORIES = ["All", ...new Set(images.map((img) => img.category))];
+let activeFilter = "All";
 
-const Gallery = () => {
-  const [activeFilter, setActiveFilter] = useState("All");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState("default");
+// Get all unique category names from the images array
+const categories = ["All", ...new Set(images.map((img) => img.category))];
 
-  const filtered = useMemo(() => {
-    let result = images.filter((img) => {
-      const matchCat = activeFilter === "All" || img.category === activeFilter;
-      const matchSearch =
-        img.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        img.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        img.description.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchCat && matchSearch;
-    });
-    if (sortBy === "featured") result = [...result].sort((a, b) => b.featured - a.featured);
-    if (sortBy === "alpha") result = [...result].sort((a, b) => a.title.localeCompare(b.title));
-    return result;
-  }, [activeFilter, searchQuery, sortBy]);
+// Grab the HTML elements we need
+const filterContainer = document.getElementById("filters");
+const gridContainer   = document.getElementById("grid");
 
-  return (
-    <section className="gallery-section">
+// ── Draw the filter buttons ──
+function renderFilters() {
+  filterContainer.innerHTML = "";
 
-      {/* ── Controls bar ── */}
-      <div className="gallery-controls">
-        {/* Search */}
-        <div className="search-wrap">
-          <svg className="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
-            <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-          <input
-            type="text"
-            placeholder="Search the gallery…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
-          {searchQuery && (
-            <button className="search-clear" onClick={() => setSearchQuery("")}>✕</button>
-          )}
-        </div>
+  categories.forEach((cat) => {
+    // Count how many images belong to this category
+    const count =
+      cat === "All"
+        ? images.length
+        : images.filter((img) => img.category === cat).length;
 
-        {/* Sort */}
-        <div className="sort-wrap">
-          <span className="sort-label">Sort</span>
-          <div className="sort-options">
-            {[
-              { v: "default", l: "Default" },
-              { v: "featured", l: "Featured" },
-              { v: "alpha", l: "A–Z" },
-            ].map((opt) => (
-              <button
-                key={opt.v}
-                className={`sort-btn ${sortBy === opt.v ? "active" : ""}`}
-                onClick={() => setSortBy(opt.v)}
-              >
-                {opt.l}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+    const btn = document.createElement("button");
+    btn.className = "filter-btn" + (cat === activeFilter ? " active" : "");
+    btn.textContent = `${cat} (${count})`;
 
-      {/* ── Category filters ── */}
-      <div className="filter-row" role="tablist">
-        {CATEGORIES.map((cat) => {
-          const count = cat === "All" ? images.length : images.filter((i) => i.category === cat).length;
-          return (
-            <button
-              key={cat}
-              role="tab"
-              aria-selected={activeFilter === cat}
-              className={`filter-pill ${activeFilter === cat ? "active" : ""}`}
-              onClick={() => setActiveFilter(cat)}
-            >
-              <span className="pill-label">{cat}</span>
-              <span className="pill-count">{count}</span>
-            </button>
-          );
-        })}
-      </div>
+    // When clicked, update the active filter and redraw
+    btn.onclick = () => {
+      activeFilter = cat;
+      renderFilters();
+      renderGrid();
+    };
 
-      {/* ── Result bar ── */}
-      <div className="result-row">
-        <div className="result-line" />
-        <span className="result-text">
-          {filtered.length} <span>photo{filtered.length !== 1 ? "s" : ""}</span>
-          {activeFilter !== "All" && <> · <em>{activeFilter}</em></>}
-        </span>
-        <div className="result-line" />
-      </div>
+    filterContainer.appendChild(btn);
+  });
+}
 
-      {/* ── Grid ── */}
-      {filtered.length > 0 ? (
-        <div className="gallery-grid">
-          {filtered.map((image, index) => (
-            <React.Fragment key={image.id}>
-              <ImageCard image={image} index={index} />
-            </React.Fragment>
-          ))}
-        </div>
-      ) : (
-        <div className="empty-state">
-          <p className="empty-icon">[ NO RESULTS ]</p>
-          <h3>Nothing found</h3>
-          <p>Try a different keyword or filter.</p>
-          <button onClick={() => { setSearchQuery(""); setActiveFilter("All"); }}>
-            Reset All
-          </button>
-        </div>
-      )}
-    </section>
-  );
-};
+// ── Draw the image grid ──
+function renderGrid() {
+  gridContainer.innerHTML = "";
 
-export default Gallery;
+  // Keep only images that match the active filter
+  const filtered =
+    activeFilter === "All"
+      ? images
+      : images.filter((img) => img.category === activeFilter);
+
+  // Show a message if nothing matches
+  if (filtered.length === 0) {
+    gridContainer.innerHTML = `
+      <div class="empty">
+        <h3>🧱 No bricks here!</h3>
+        <p>Try a different category.</p>
+        <button onclick="activeFilter='All'; renderFilters(); renderGrid();">
+          Show All
+        </button>
+      </div>`;
+    return;
+  }
+
+  // Build and add each card using imagecard.js
+  filtered.forEach((image, index) => {
+    const card = createImageCard(image, index);
+    gridContainer.appendChild(card);
+  });
+}
